@@ -1,18 +1,6 @@
-import numpy as np
 import csv
-import PIL.Image as Image
-import matplotlib.pylab as plt
 
-import tensorflow as tf
-import tensorflow_hub as hub
-
-
-classifier_model = tf.keras.models.load_model('MobileNet')
-IMAGE_SHAPE = (224, 224)
-classifier = tf.keras.Sequential([
-    hub.KerasLayer(classifier_model, input_shape=IMAGE_SHAPE+(3,))
-])
-with open('70Food.csv', 'r') as read_obj:
+with open('FoodDatabase.csv', 'r') as read_obj:
     csv_reader = csv.reader(read_obj)
     FOOD = list(csv_reader)
     FoodMap = {}
@@ -31,10 +19,26 @@ from PIL import Image
 
 app = Flask(__name__)
 
+import cv2
+import PIL.Image as Image
+import numpy as np
+import tensorflow as tf
+import tensorflow_hub as hub
+
+
+classifier_model = tf.keras.models.load_model('MobileNet')
+IMAGE_SHAPE = (224, 224)
+classifier = tf.keras.Sequential([
+    hub.KerasLayer(classifier_model, input_shape=IMAGE_SHAPE+(3,))
+])
+
 @app.route("/image", methods=["POST"])
 def process_image():
     file = request.files['image']
-    img = Image.open(file.stream).resize(IMAGE_SHAPE)
+    npimg = np.fromfile(file, np.uint8)
+    image = cv2.imdecode(npimg,cv2.IMREAD_COLOR)  
+    color_converted = cv2.cvtColor(image,cv2.COLOR_BGR2RGB)
+    img = Image.fromarray(color_converted).resize(IMAGE_SHAPE)
     img = np.array(img)/255.0
     result = classifier.predict(img[np.newaxis, ...])
     predicted_class = tf.math.argmax(result[0], axis=-1)
@@ -43,7 +47,7 @@ def process_image():
         "name": food_name,
         "info": FoodMap[food_name],
     }
-    return jsonify(output)  
+    return "RESPONSE" 
 
 @app.route("/name", methods=["POST"])
 def process_name():
@@ -63,6 +67,8 @@ def process_name():
                 "omega":'-'
             }
         }
-    return jsonify(output )
+        return "RESPONSE" 
 
-app.run(host='0.0.0.0', port=80)
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=7777)
